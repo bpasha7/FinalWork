@@ -20,66 +20,37 @@ using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-using System.IO;
 using System.Threading;
+using System.Runtime;
+
+using System.Diagnostics;
 
 namespace FinalWork
 {
-    class OIDValueType
-    {
-        string IP;
-        List<string> _OIDs;
-        List<string> _Values;
-        List<string> _Types;
-        public OIDValueType(string ip)
-        {
-            IP = ip;
-            _OIDs = new List<string>();
-            _Values = new List<string>();
-            _Types = new List<string>();
-        }
-        public void AddOIDValueType(string OID, string Val, string Type)
-        {
-            _OIDs.Add(OID);
-            _Values.Add(Val);
-            _Types.Add(Type);
-        }
-        public ListEntry GetCustom(int index)
-        {
-            ListEntry row = new ListEntry();
-            row.Elements.Add(new ListEntry.Custom() { LocalName = "oid", Value = _OIDs[index] });
-            row.Elements.Add(new ListEntry.Custom() { LocalName = "value", Value = _Values[index] });
-            row.Elements.Add(new ListEntry.Custom() { LocalName = "type", Value = _Types[index] });
-            return row;
-        }
-        public int Count
-        {
-            get { return _OIDs.Count; }
-        }
-        public string[] GetOIDsAsArray
-        {
-            get { return _OIDs.ToArray(); }
-        }
-        public string[] GetValuesAsArray
-        {
-            get { return _Values.ToArray(); }
-        }
-        public string[] GetTypesAsArray
-        {
-            get { return _Types.ToArray(); }
-        }
-    }
+    
     class ManagerWindow:TabPage
     {
+        struct ListFunctionToThread
+        {
+            public string Function;
+            public string Plugin;
+        }
         List<DllManager> Mydlls = new List<DllManager>();
         List<string> Vals = new List<string>();
         List<object> Params = new List<object>();
         List<OIDValueType> ListData = new List<OIDValueType>();
+        List<ListFunctionToThread> ListItemsFunctions;
         //Google
         SpreadsheetsService service;
         SpreadsheetEntry TargetTable;
-
-
+        /// <summary>
+        /// Таск для обработки
+        /// </summary>
+        Thread MyThread;
+        delegate void DelegateSetControlText(string textToControl);
+        delegate void DelegateProgress(ProgressBar control);
+        delegate void DelegateProgressBarSetStartParams(ProgressBar control, int count);
+        delegate void ControlVisible(Control TabControl, bool visible = true);
 
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip2;
@@ -99,10 +70,95 @@ namespace FinalWork
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label4;
-
         private System.Windows.Forms.ProgressBar progressBar1;
+        private System.Windows.Forms.ProgressBar GeneralprogressBar;
 
+        void tabControlShow(Control tabControl, bool visible = true)
+        {
+            if (tabControl.InvokeRequired)
+            {
+                ControlVisible d = new ControlVisible(tabControlShow);
+                tabControl.Invoke(d, new object[] { tabControl, visible });
+            }
+            else
+                tabControl.Visible = visible;
+        }
 
+        void IncrementProgressbar(ProgressBar control)
+        {
+            if (control.InvokeRequired)
+            {
+                DelegateProgress d = new DelegateProgress(IncrementProgressbar);
+                control.Invoke(d, new object[] { control });
+            }
+            else
+            {
+                control.Value++;
+            }
+        }
+
+        void IncrementGeneralLabel(string textToLabel)
+        {
+            if (label3.InvokeRequired)
+            {
+                DelegateSetControlText d = new DelegateSetControlText(IncrementGeneralLabel);
+                label3.Invoke(d, new object[] { textToLabel });
+            }
+            else
+                label3.Text = textToLabel;
+        }
+
+        void AppendTextToTextBox(string textToTextBox)
+        {
+            if (outData.InvokeRequired)
+            {
+                DelegateSetControlText d = new DelegateSetControlText(AppendTextToTextBox);
+                outData.Invoke(d, new object[] { textToTextBox });
+            }
+            else
+                outData.AppendText(textToTextBox);
+        }
+
+        void ProgressBarSetStartParams(ProgressBar control, int count)
+        {
+            if (control.InvokeRequired)
+            {
+                DelegateProgressBarSetStartParams d = new DelegateProgressBarSetStartParams(ProgressBarSetStartParams);
+                control.Invoke(d, new object[] { control, count });
+            }
+            else
+            {
+                control.Value = 0;
+                control.Maximum = count;
+            }
+        }
+
+        public void SetFromFilePlan(string[] NoSplitedParams)
+        {
+                try
+                {
+                listView1.Items.Clear();
+                Params.Clear();
+                    foreach (string item in NoSplitedParams)
+                    {
+                        string[] row = item.Split('|');// { (listView1.Items.Count + 1).ToString(), FuncBox.Text, FuncBox.SelectedValue.ToString().Remove(FuncBox.SelectedValue.ToString().Length - 1) };
+                        var listViewItem = new ListViewItem(row);
+                        listView1.Items.Add(listViewItem);
+                        Params.Add(GetParamsByFnctionName(row[1], listView1.Items.Count));
+                    //Params.Add(GetParamsByFnctionName(row[1], Convert.ToInt32(row[2])-1));
+                }
+                //string FunctionName = listView1.Items[listView1.SelectedItems[0].Index].SubItems[1].Text;
+                // if (Params.Count == 0)
+                //  Params.Add(new string[]{" "," "," "," " });
+               // Params[listView1.SelectedItems[0].Index] = GetParamsByFnctionName(FunctionName, listView1.SelectedItems[0].Index);
+            }
+                catch(Exception ex)
+                {
+                    MessageBox.Show("Некоректный набор функций!", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+                }
+
+            
+        }
         private void clearToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Params.Clear();
@@ -121,7 +177,7 @@ namespace FinalWork
                 Mydlls.Add(new DllManager("dll\\"+dlls[i], i));
             }
         }
-
+        
         private void LoadCombobox()
         {
             FuncBox.DisplayMember = "Value";
@@ -139,27 +195,8 @@ namespace FinalWork
 
         private void button3_Click(object sender, EventArgs e)
         {
-            OpenFileDialog openFileDialog1 = new OpenFileDialog();
-            openFileDialog1.InitialDirectory = Directory.GetCurrentDirectory();
-            openFileDialog1.Filter = "dll files (*.dll)|*.dll|All files (*.*)|*.*";
-            openFileDialog1.FilterIndex = 2;
-            openFileDialog1.RestoreDirectory = true;
-
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                try
-                {
-                    if (openFileDialog1.OpenFile() != null)
-                    {
-                        Mydlls.Add(new DllManager(openFileDialog1.FileName, Mydlls.Count));
-                        LoadCombobox();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
-                }
-            }
+            if (MyThread != null)
+                MyThread.Suspend();
         }
 
         private void listView1_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -169,6 +206,8 @@ namespace FinalWork
                 return;
             }
             string FunctionName = listView1.Items[listView1.SelectedItems[0].Index].SubItems[1].Text;
+           // if (Params.Count == 0)
+              //  Params.Add(new string[]{" "," "," "," " });
             Params[listView1.SelectedItems[0].Index] = GetParamsByFnctionName(FunctionName, listView1.SelectedItems[0].Index);
         }
         private string ToGoogleTable()
@@ -191,19 +230,18 @@ namespace FinalWork
             cellFeed.Insert(cellEntry);
             cellEntry = new CellEntry(1, 3, "type");
             cellFeed.Insert(cellEntry);
-            progressBar1.Maximum = ListData[ListData.Count - 1].Count;
-            progressBar1.Value = 0;
-            progressBar1.Visible = true;
-            label2.Visible = true;
+            ProgressBarSetStartParams(progressBar1, ListData[ListData.Count - 1].Count);
+            tabControlShow(progressBar1);
+            tabControlShow(label3);
             for (int i = 0; i < ListData[ListData.Count - 1].Count; i++)
             {
-                progressBar1.Value++;
-                label3.Text = string.Format("Выполнено {0}/{1}", progressBar1.Value, ListData[ListData.Count - 1].Count);
+                IncrementProgressbar( progressBar1);
+                IncrementGeneralLabel(string.Format("Выполнено {0}/{1}", i+1, ListData[ListData.Count - 1].Count));
                 service.Insert(listFeed, ListData[ListData.Count - 1].GetCustom(i));
             }
-            progressBar1.Visible = false;
-            label2.Visible = false;
-            return "G Ok";
+            tabControlShow(progressBar1, false);
+            tabControlShow(label3, false);
+            return "Данные записаны";
         }
         private long SNMPWALK(List<string> Vals)
         {
@@ -214,13 +252,13 @@ namespace FinalWork
                 SimpleSnmp snmp = new SimpleSnmp(host, community);
                 if (!snmp.Valid)
                 {
-                    Console.WriteLine("SNMP agent host name/ip address is invalid.");
+                    //Console.WriteLine("SNMP agent host name/ip address is invalid.");
                     return 0;
                 }
                 Dictionary<Oid, AsnType> result = snmp.Walk(SnmpVersion.Ver1, Vals[2]);
                 if (result == null)
                 {
-                    label1.Text = "No results received.";
+                    //label1.Text = "No results received.";
                     return 0;
                 }
                 ListData.Add(new OIDValueType(Vals[0]));
@@ -279,10 +317,10 @@ namespace FinalWork
                 {
                     case "Initializate":
                         StringBuilder fields = new StringBuilder(2048);
-                        List<string> Vals = new List<string>();
+                        Vals = new List<string>();
                         InputForm inf = new InputForm();
-                        GetDllByName("SNMPData").CallFunctions("FormComponets", new object[] { fields, fields.Capacity });//InitializateParameters
-                        if (Params.Count - 1 >= FunctionIndex && Vals.Count != 0)
+                        GetDllByName("SNMPData").CallFunctions("FormComponets", new object[] { fields, fields.Capacity });
+                        if (Params.Count - 1 >= FunctionIndex)//&& Vals.Count != 0
                         {
                             Vals = (List<string>)Params[FunctionIndex];
                             inf.AddControls(fields.ToString().Split(new char[] { ';' }), Vals);
@@ -293,11 +331,11 @@ namespace FinalWork
                         inf.ShowDialog();
                         if (inf.DialogResult != DialogResult.OK)
                         {
-                            //Vals = inf.FieldValues;
                             return Vals;
                         }
                         else
                             Vals = inf.FieldValues;
+                        //Vals = new List<string>() {"127.0.0.1","public", "1.3.6.1.2.1.25.4.2.1.2", "234fgsdf" } ;//inf.FieldValues;
                         return Vals;
                     default: return null;
                 }
@@ -308,36 +346,77 @@ namespace FinalWork
                 return null;
             }
         }
-        private void button1_Click(object sender, EventArgs e)
+        void StartMYListFunctions()
         {
             try
             {
-                this.label1.Text = "";
                 long MyData = 0;
-                for (int i = 0; i < listView1.Items.Count; i++)
+                ProgressBarSetStartParams(GeneralprogressBar, ListItemsFunctions.Count);
+                tabControlShow(GeneralprogressBar);
+                for (int i = 0; i < ListItemsFunctions.Count; i++)
                 {
                     string res = "";
-                    switch (listView1.Items[i].SubItems[1].Text)
+                    switch (ListItemsFunctions[i].Function)
                     {
-                        case "DataToGoogleTable": res = ToGoogleTable();break;
+                        case "DataToGoogleTable":
+                            res = ToGoogleTable();
+                            break;
                         case "Initializate":
-                            MyData = SNMPWALK((List<string>)Params[i]); break;
-                        case "EncodeHexProperty": MyData = (long)GetDllByName(listView1.Items[i].SubItems[2].Text).CallFunctions("EncodeHexProperty", new object[] { MyData }); break;
-                        case "SortDataByProperties": MyData = (long)GetDllByName(listView1.Items[i].SubItems[2].Text).CallFunctions("SortDataByProperties", new object[] { MyData }); break;
-                        case "HtmlExport": res = GetDllByName(listView1.Items[i].SubItems[2].Text).CallFunctions("HtmlExport", new object[] { MyData }).ToString(); break;
-                        case "CSVExport": res = GetDllByName(listView1.Items[i].SubItems[2].Text).CallFunctions("CSVExport", new object[] { MyData }).ToString(); break;
+                            MyData = SNMPWALK((List<string>)Params[i]);
+                            break;
+                        case "EncodeHexProperty":
+                            MyData = (long)GetDllByName(ListItemsFunctions[i].Plugin).CallFunctions("EncodeHexProperty", new object[] { MyData });
+                            break;
+                        case "SortDataByProperties":
+                            MyData = (long)GetDllByName(ListItemsFunctions[i].Plugin).CallFunctions("SortDataByProperties", new object[] { MyData });
+                            break;
+                        case "HtmlExport":
+                            res = GetDllByName(ListItemsFunctions[i].Plugin).CallFunctions("HtmlExport", new object[] { MyData }).ToString();
+                            break;
+                        case "CSVExport":
+                            res = GetDllByName(ListItemsFunctions[i].Plugin).CallFunctions("CSVExport", new object[] { MyData }).ToString();
+                            break;
                         default: break;
                     }
+                    IncrementProgressbar(GeneralprogressBar);
                     if (res != "")
-                        outData.AppendText(listView1.Items[i].SubItems[1].Text + " = " + res + "\n");
+                        AppendTextToTextBox(ListItemsFunctions[i].Function + " возращает " + res + ";\n");
+                    //outData.AppendText(listView1.Items[i].SubItems[1].Text + " = " + res + "\n");
                     else
-                        outData.AppendText(listView1.Items[i].SubItems[1].Text + "->OK" + "\n");
+                        AppendTextToTextBox(ListItemsFunctions[i].Function + " выполнено" + ";\n");
                     res = "";
                 }
+                tabControlShow(GeneralprogressBar, false);
+                AppendTextToTextBox("Done;");
+                MyThread.Interrupt();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message.ToString());
+                MessageBox.Show(ex.ToString());
+            }
+            
+        }
+        private void button1_Click(object sender, EventArgs e)
+        {
+            this.label3.Visible = true;
+            if (MyThread != null && MyThread.ThreadState != System.Threading.ThreadState.Stopped)
+            {
+                if (MyThread.ThreadState == System.Threading.ThreadState.Suspended)
+                    MyThread.Resume();
+            }
+            else
+            {
+               // Dead = false;
+                MyThread = new Thread(StartMYListFunctions);
+                ListItemsFunctions = new List<ListFunctionToThread>();
+                ListFunctionToThread itemToAdd = new ListFunctionToThread();
+                foreach (ListViewItem item in listView1.Items)
+                {
+                    itemToAdd.Function = item.SubItems[1].Text;
+                    itemToAdd.Plugin = item.SubItems[2].Text;
+                    ListItemsFunctions.Add(itemToAdd);
+                }
+                MyThread.Start();
             }
         }
 
@@ -364,8 +443,18 @@ namespace FinalWork
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
+            this.GeneralprogressBar = new System.Windows.Forms.ProgressBar();
+
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
+            // 
+            // GeneralprogressBar
+            // 
+            this.GeneralprogressBar.Location = new System.Drawing.Point(8, 250);
+            this.GeneralprogressBar.Name = "GeneralprogressBar";
+            this.GeneralprogressBar.Size = new System.Drawing.Size(535, 14);
+            this.GeneralprogressBar.Value = 0;
+            this.GeneralprogressBar.Visible = false;
             // 
             // progressBar1
             // 
@@ -379,7 +468,7 @@ namespace FinalWork
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(252, 289);
+            this.label3.Location = new System.Drawing.Point(180, 289);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(45, 16);
             this.label3.TabIndex = 8;
@@ -420,6 +509,7 @@ namespace FinalWork
             this.Controls.Add(this.button3);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.progressBar1);
+            this.Controls.Add(this.GeneralprogressBar);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label4);
             this.Location = new System.Drawing.Point(4, 22);
@@ -535,7 +625,7 @@ namespace FinalWork
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(86, 23);
             this.button3.TabIndex = 22;
-            this.button3.Text = "Add DLL";
+            this.button3.Text = "Пауза";
             this.button3.UseVisualStyleBackColor = true;
             this.button3.Click += new System.EventHandler(this.button3_Click);
             // 
@@ -561,8 +651,65 @@ namespace FinalWork
             TargetTable = _TargetTable;
             this.Text = PageName;
             CustomLayout();
-           // LoadDll();
             LoadCombobox();
+        }
+        public List<string> GetListOfFunctions()
+        {
+            List<string> FunctionsInQueue = new List<string>();
+            foreach (ListViewItem item in listView1.Items)
+            {
+                FunctionsInQueue.Add(string.Format("{0}|{1}|{2}", item.SubItems[0].Text, item.SubItems[1].Text, item.SubItems[2].Text));
+            }
+            return FunctionsInQueue;
+        }
+        public void SetDll(List<DllManager> SharedDll)
+        {
+            Mydlls = SharedDll;
+            LoadCombobox();
+        }
+    }
+    class OIDValueType
+    {
+        string IP;
+        List<string> _OIDs;
+        List<string> _Values;
+        List<string> _Types;
+        public OIDValueType(string ip)
+        {
+            IP = ip;
+            _OIDs = new List<string>();
+            _Values = new List<string>();
+            _Types = new List<string>();
+        }
+        public void AddOIDValueType(string OID, string Val, string Type)
+        {
+            _OIDs.Add(OID);
+            _Values.Add(Val);
+            _Types.Add(Type);
+        }
+        public ListEntry GetCustom(int index)
+        {
+            ListEntry row = new ListEntry();
+            row.Elements.Add(new ListEntry.Custom() { LocalName = "oid", Value = _OIDs[index] });
+            row.Elements.Add(new ListEntry.Custom() { LocalName = "value", Value = _Values[index] });
+            row.Elements.Add(new ListEntry.Custom() { LocalName = "type", Value = _Types[index] });
+            return row;
+        }
+        public int Count
+        {
+            get { return _OIDs.Count; }
+        }
+        public string[] GetOIDsAsArray
+        {
+            get { return _OIDs.ToArray(); }
+        }
+        public string[] GetValuesAsArray
+        {
+            get { return _Values.ToArray(); }
+        }
+        public string[] GetTypesAsArray
+        {
+            get { return _Types.ToArray(); }
         }
     }
 }

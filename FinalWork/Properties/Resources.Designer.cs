@@ -63,6 +63,16 @@ namespace FinalWork.Properties {
         /// <summary>
         ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap _lock {
+            get {
+                object obj = ResourceManager.GetObject("lock", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Action_tab {
             get {
                 object obj = ResourceManager.GetObject("Action-tab", resourceCulture);
@@ -76,6 +86,16 @@ namespace FinalWork.Properties {
         internal static System.Drawing.Bitmap Action_tab_remove_icon {
             get {
                 object obj = ResourceManager.GetObject("Action-tab-remove-icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Apps {
+            get {
+                object obj = ResourceManager.GetObject("Apps", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
@@ -143,6 +163,26 @@ namespace FinalWork.Properties {
         /// <summary>
         ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap INI_File_icon {
+            get {
+                object obj = ResourceManager.GetObject("INI-File-icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap ini_icon {
+            get {
+                object obj = ResourceManager.GetObject("ini-icon", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Key {
             get {
                 object obj = ResourceManager.GetObject("Key", resourceCulture);
@@ -186,6 +226,16 @@ namespace FinalWork.Properties {
         internal static System.Drawing.Bitmap Yadisk {
             get {
                 object obj = ResourceManager.GetObject("Yadisk", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Поиск локализованного ресурса типа System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap Yadisk1 {
+            get {
+                object obj = ResourceManager.GetObject("Yadisk1", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
